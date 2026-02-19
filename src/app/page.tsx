@@ -9,7 +9,6 @@ import {
   Wallet,
   Box,
   Globe,
-  Twitter,
   Github,
   Instagram,
   Linkedin,
@@ -24,6 +23,13 @@ import { useEthersSigner } from '@/hooks'
 import { ScreenManagerContext } from '@/contexts/ScreenManagerContext'
 import { screens } from '@/types'
 
+// Komponen SVG Kustom untuk Logo X (Twitter Baru)
+const XLogo = ({ size = 32, className = '' }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.008 5.976H5.039z" />
+  </svg>
+)
+
 const CONTRACT_ABI = [
   'function setProfile(string memory _username, string memory _ipfsHash) public',
   'function getProfileByUsername(string memory _username) public view returns (string memory ipfsHash, address user)',
@@ -36,121 +42,16 @@ export default function App() {
   const { address: account, isConnected } = useAccount()
   const signer = useEthersSigner()
 
-  // 1. AMBIL FUNGSI DARI CONTEXT NERO
   const sendOpContext = useContext(SendUserOpContext)
-  // TAMBAHKAN BARIS INI
   const screenManager = useContext(ScreenManagerContext)
+  
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
-const [nfts, setNfts] = useState<any[]>([])
+  const [nfts, setNfts] = useState<any[]>([])
   const [loadingNfts, setLoadingNfts] = useState(false)
 
-const fetchNftsFromChain = useCallback(async (ownerAddress: string) => {
-    if (!ownerAddress || ownerAddress === ethers.constants.AddressZero) return
-    
-    setLoadingNfts(true)
-    try {
-      const rpcProvider = new ethers.providers.JsonRpcProvider('https://rpc-testnet.nerochain.io')
-      
-      // 1. MASUKKAN ALAMAT KONTRAK PENUH DARI GAMBAR ANDA DI SINI
-      const NFT_CONTRACT_ADDRESS = "0xf425742f182899de2f1efa0b02901d6c47c7ccc6" // Isi lengkapnya (lihat di dompet/explorer)
-      
-      const NFT_ABI = [
-        "function balanceOf(address owner) view returns (uint256)",
-        "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-        "function tokenURI(uint256 tokenId) view returns (string)",
-        "function name() view returns (string)",
-        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
-      ]
-      
-      const contract = new ethers.Contract(NFT_CONTRACT_ADDRESS, NFT_ABI, rpcProvider)
-      
-      // Cek Saldo
-      const balance = await contract.balanceOf(ownerAddress)
-      if (balance.toNumber() === 0) {
-        setNfts([])
-        setLoadingNfts(false)
-        return
-      }
-
-      const collectionName = await contract.name().catch(() => "Nero NFT")
-      let tokenIds: string[] = []
-
-      // 2. MENCARI TOKEN ID
-      try {
-        // Cara A: Pakai Enumerable (Standar lama)
-        for(let i = 0; i < balance.toNumber(); i++) {
-          const tid = await contract.tokenOfOwnerByIndex(ownerAddress, i)
-          tokenIds.push(tid.toString())
-        }
-      } catch (e) {
-        console.log("Mencari via log transfer karena kontrak tidak support Enumerable...")
-        // Cara B: Cari dari Riwayat Transfer jika Cara A ditolak kontrak
-        const filter = contract.filters.Transfer(null, ownerAddress)
-        const logs = await contract.queryFilter(filter, 0, "latest")
-        // Ambil token ID unik dari riwayat masuk
-        const uniqueTokens = new Set<string>()
-        logs.forEach(log => {
-          if (log.args && log.args.tokenId) uniqueTokens.add(log.args.tokenId.toString())
-        })
-        tokenIds = Array.from(uniqueTokens)
-      }
-
-      const fetchedNfts = []
-
-      // 3. MEMBACA METADATA JSON & MENCARI GAMBAR
-      for (let tokenId of tokenIds) {
-        try {
-          let uri = await contract.tokenURI(tokenId)
-          if (!uri) continue
-
-          // Ubah IPFS menjadi link HTTP yang bisa dibuka browser
-          let httpUrl = uri.startsWith('ipfs://') 
-            ? uri.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/') 
-            : uri
-
-          let finalImageUrl = httpUrl
-          let finalName = `${collectionName} #${tokenId}`
-
-          // Tarik data JSON untuk mencari gambar aslinya
-          try {
-            const metaRes = await axios.get(httpUrl)
-            if (metaRes.data) {
-              if (metaRes.data.name) finalName = metaRes.data.name
-              if (metaRes.data.image) {
-                finalImageUrl = metaRes.data.image.startsWith('ipfs://')
-                  ? metaRes.data.image.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/')
-                  : metaRes.data.image
-              }
-            }
-          } catch (jsonErr) {
-            console.log("URL bukan file JSON, menggunakan URL langsung.")
-          }
-
-          fetchedNfts.push({ name: finalName, image_url: finalImageUrl })
-        } catch (err) {
-          console.error(`Gagal memuat detail token ${tokenId}:`, err)
-        }
-      }
-      
-      setNfts(fetchedNfts)
-    } catch (e) {
-      console.error("Gagal total menarik dari Smart Contract:", e)
-      setNfts([])
-    }
-    setLoadingNfts(false)
-  }, [])
-
-  // Panggil fungsi ini di dalam useEffect fetchProfileData
-  useEffect(() => {
-    const path = window.location.pathname.replace('/', '')
-    if (path && path !== '') {
-      // Jika orang lain buka link /username, ambil NFT alamat tersebut
-      // Anda perlu mendapatkan alamat owner dari fetchProfileData terlebih dahulu
-    }
-  }, [account])
   const [profile, setProfile] = useState({
     username: '',
     bio: 'NeroChain Explorer',
@@ -162,13 +63,99 @@ const fetchNftsFromChain = useCallback(async (ownerAddress: string) => {
     nftCollection: '',
   })
 
-  // 1. PERBAIKAN FUNGSI FETCH (Gunakan RPC murni, hapus signer)
+  // FUNGSI TARIK NFT REAL-TIME VIA RPC
+  const fetchNftsFromChain = useCallback(async (ownerAddress: string) => {
+    if (!ownerAddress || ownerAddress === ethers.constants.AddressZero) return
+    
+    setLoadingNfts(true)
+    try {
+      const rpcProvider = new ethers.providers.JsonRpcProvider('https://rpc-testnet.nerochain.io')
+      const NFT_CONTRACT_ADDRESS = "0xf425742f182899de2f1efa0b02901d6c47c7ccc6" 
+      
+      const NFT_ABI = [
+        "function balanceOf(address owner) view returns (uint256)",
+        "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+        "function tokenURI(uint256 tokenId) view returns (string)",
+        "function name() view returns (string)",
+        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+      ]
+      
+      const contract = new ethers.Contract(NFT_CONTRACT_ADDRESS, NFT_ABI, rpcProvider)
+      
+      const balance = await contract.balanceOf(ownerAddress)
+      if (balance.toNumber() === 0) {
+        setNfts([])
+        setLoadingNfts(false)
+        return
+      }
+
+      const collectionName = await contract.name().catch(() => "Nero NFT")
+      let tokenIds: string[] = []
+
+      try {
+        for(let i = 0; i < balance.toNumber(); i++) {
+          const tid = await contract.tokenOfOwnerByIndex(ownerAddress, i)
+          tokenIds.push(tid.toString())
+        }
+      } catch (e) {
+        console.log("Mencari via log transfer karena kontrak tidak support Enumerable...")
+        const filter = contract.filters.Transfer(null, ownerAddress)
+        const logs = await contract.queryFilter(filter, 0, "latest")
+        const uniqueTokens = new Set<string>()
+        logs.forEach(log => {
+          if (log.args && log.args.tokenId) uniqueTokens.add(log.args.tokenId.toString())
+        })
+        tokenIds = Array.from(uniqueTokens)
+      }
+
+      const fetchedNfts = []
+
+      for (let tokenId of tokenIds) {
+        try {
+          let uri = await contract.tokenURI(tokenId)
+          if (!uri) continue
+
+          let httpUrl = uri.startsWith('ipfs://') 
+            ? uri.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/') 
+            : uri
+
+          let finalImageUrl = httpUrl
+          let finalName = `${collectionName} #${tokenId}`
+
+          try {
+            const metaRes = await axios.get(httpUrl)
+            if (metaRes.data) {
+              if (metaRes.data.name) finalName = metaRes.data.name
+              if (metaRes.data.image) {
+                finalImageUrl = metaRes.data.image.startsWith('ipfs://')
+                  ? metaRes.data.image.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/')
+                  : metaRes.data.image
+              }
+            }
+          } catch (jsonErr) {
+            console.log("Menggunakan URL metadata secara langsung.")
+          }
+
+          fetchedNfts.push({ name: finalName, image_url: finalImageUrl })
+        } catch (err) {
+          console.error(`Gagal memuat token ${tokenId}:`, err)
+        }
+      }
+      
+      setNfts(fetchedNfts)
+    } catch (e) {
+      console.error("Gagal total menarik dari Smart Contract:", e)
+      setNfts([])
+    }
+    setLoadingNfts(false)
+  }, [])
+
+  // FUNGSI TARIK DATA PROFIL
   const fetchProfileData = useCallback(
     async (identifier: string, isAddress: boolean) => {
       setLoading(true)
       try {
         const rpcProvider = new ethers.providers.JsonRpcProvider('https://rpc-testnet.nerochain.io')
-        // Pastikan provider HANYA rpcProvider, jangan gunakan signer untuk membaca
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider)
 
         let ipfsHash = ''
@@ -182,32 +169,31 @@ const fetchNftsFromChain = useCallback(async (ownerAddress: string) => {
           const data = await contract.getProfileByUsername(identifier)
           ipfsHash = data.ipfsHash
           ownerAddr = data.user
+          
+          if (ownerAddr && ownerAddr !== ethers.constants.AddressZero) {
+            fetchNftsFromChain(ownerAddr)
+          }
         }
 
-if (ipfsHash) {
+        if (ipfsHash) {
           const res = await axios.get(`${import.meta.env.VITE_GATEWAY_URL}${ipfsHash}`)
           setProfile(res.data)
-          
-          // Memicu pencarian NFT Real-Time langsung dari Smart Contract
-          fetchNftsFromChain(ownerAddr)
-
-          if (account && ownerAddr.toLowerCase() === account.toLowerCase()) {
-            setIsOwner(true)
-          } else {
-            setIsOwner(false)
-          }
+        }
+        
+        if (account && ownerAddr.toLowerCase() === account.toLowerCase()) {
+          setIsOwner(true)
+        } else {
+          setIsOwner(false)
         }
       } catch (e) {
         console.log('Profil tidak ditemukan')
       }
       setLoading(false)
     },
-    // HAPUS signer dan isConnected dari sini untuk mencegah infinite loop
-    [account],
+    [account, fetchNftsFromChain]
   )
 
-  // 2. TAMBAHKAN KEMBALI USE EFFECT INI (Sebelumnya tidak sengaja terhapus)
-  // Ini bertugas memanggil fetchProfileData saat halaman dibuka
+  // USE EFFECT PERTAMA DIMUAT
   useEffect(() => {
     const path = window.location.pathname.replace('/', '')
 
@@ -215,30 +201,28 @@ if (ipfsHash) {
       fetchProfileData(path, false)
     } else if (account) {
       fetchProfileData(account, true)
+      fetchNftsFromChain(account)
     } else {
       setLoading(false)
     }
-  }, [account, fetchProfileData])
+  }, [account, fetchProfileData, fetchNftsFromChain])
 
-  // 2. PANTAU STATUS TRANSAKSI DARI SIDEBAR NERO
-  // Karena transaksi dieksekusi oleh Sidebar, kita harus memantau hasilnya dari Context
+  // PANTAU HASIL TRANSAKSI
   useEffect(() => {
     if (sendOpContext?.latestUserOpResult) {
       console.log('Transaksi sukses dari Sidebar!', sendOpContext.latestUserOpResult)
       alert('Sukses! Profil berhasil disimpan via Nero Wallet.')
       setIsEditing(false)
-      fetchProfileData(profile.username, false) // Refresh data
-      // Bersihkan hasil agar tidak trigger terus-menerus
+      fetchProfileData(profile.username, false)
       sendOpContext.setLatestUserOpResult(null)
     }
-  }, [sendOpContext?.latestUserOpResult])
+  }, [sendOpContext?.latestUserOpResult, fetchProfileData, profile.username, sendOpContext])
 
   const saveProfile = async () => {
     if (!account) return alert('Koneksikan dompet!')
 
     setLoading(true)
     try {
-      // 1. Proses IPFS (tetap sama)
       const pinRes = await axios.post('https://api.pinata.cloud/pinning/pinJSONToIPFS', profile, {
         headers: {
           pinata_api_key: import.meta.env.VITE_PINATA_API_KEY,
@@ -247,33 +231,22 @@ if (ipfsHash) {
       })
       const ipfsHash = pinRes.data.IpfsHash
 
-      // 2. Persiapkan Calldata (tetap sama)
       const iface = new ethers.utils.Interface(CONTRACT_ABI)
       const calldata = iface.encodeFunctionData('setProfile', [profile.username, ipfsHash])
 
-      // 3. TRIGGER SIDEBAR NERO (SESUAIKAN DENGAN useSendUserOp)
       if (sendOpContext && screenManager) {
-        console.log('Mengirim transaksi ke Sidebar Nero...')
-
-        // JANGAN gunakan calldata di sini, SDK Nero ingin merakitnya sendiri
         sendOpContext.setUserOperations([
           {
-            // --- DATA UNTUK MESIN BLOCKCHAIN (useSendUserOp.ts) ---
             contractAddress: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI, // Kirimkan ABI lengkapnya
-            function: 'setProfile', // Nama fungsinya saja
-            params: [profile.username, ipfsHash], // Kirim parameter dalam array
+            abi: CONTRACT_ABI,
+            function: 'setProfile',
+            params: [profile.username, ipfsHash],
             value: '0',
-
-            // --- DATA UNTUK VISUAL UI (SendUserOpDetail.tsx) ---
-            // (Tetap masukkan agar UI tidak crash truncateAddress)
             to: CONTRACT_ADDRESS,
           } as any,
         ])
 
-        // Buka Panel dan Navigasi
         sendOpContext.forceOpenPanel()
-
         setTimeout(() => {
           screenManager.navigateTo(screens.SENDUSEROP)
         }, 300)
@@ -315,7 +288,6 @@ if (ipfsHash) {
               </button>
             )}
 
-            {/* Tombol Simpan/Edit kini akan selalu muncul jika user terkoneksi untuk mencegah bug hilang */}
             {isConnected && (
               <button
                 onClick={() => (isEditing ? saveProfile() : setIsEditing(true))}
@@ -338,7 +310,6 @@ if (ipfsHash) {
           </div>
         </nav>
 
-        {/* Indikator Akun Baru yang Lebih Akurat */}
         {isConnected && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -357,8 +328,7 @@ if (ipfsHash) {
               </div>
             </div>
             <span className='text-[10px] text-purple-300/70 italic text-right max-w-[200px]'>
-              Pastikan Anda login via Twitter/Google di Sidebar agar transaksi masuk ke Dashboard
-              AA.
+              Pastikan Anda login via Twitter/Google di Sidebar agar transaksi masuk ke Dashboard AA.
             </span>
           </motion.div>
         )}
@@ -371,7 +341,6 @@ if (ipfsHash) {
             </p>
           </div>
         ) : window.location.pathname === '/' && !profile.username && !isEditing ? (
-          /* LANDING PAGE */
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -403,7 +372,6 @@ if (ipfsHash) {
             )}
           </motion.div>
         ) : (
-          /* BENTO GRID */
           <div className='flex flex-col gap-4'>
             <AnimatePresence>
               {isEditing && (
@@ -468,7 +436,7 @@ if (ipfsHash) {
               </motion.div>
 
               <SocialCard
-                icon={Twitter}
+                icon={XLogo}
                 label='X'
                 value={profile.x}
                 type='x'
@@ -501,11 +469,10 @@ if (ipfsHash) {
                   </p>
                 </div>
 
-                {/* Galeri NFT Publik yang bisa dilihat orang lain */}
                 <div className='flex gap-4 mt-6 overflow-x-auto pb-4 scrollbar-hide'>
                   {loadingNfts ? (
                     <div className='flex items-center gap-2 text-gray-500 text-xs'>
-                      <Loader2 className='animate-spin' size={14} /> Scanning NeroChain...
+                      <Loader2 className='animate-spin' size={14} /> Membaca Kontrak...
                     </div>
                   ) : nfts.length > 0 ? (
                     nfts.map((nft, i) => (
@@ -513,15 +480,11 @@ if (ipfsHash) {
                         key={i}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className='flex-shrink-0'
+                        className='flex-shrink-0 relative group/nft'
                       >
                         <img
-                          src={
-                            nft.image_url ||
-                            nft.token?.image_url ||
-                            'https://placehold.co/200x200?text=NFT'
-                          }
-                          className='h-24 w-24 rounded-2xl object-cover border border-white/10'
+                          src={nft.image_url || 'https://placehold.co/200x200?text=NFT'}
+                          className='h-24 w-24 rounded-2xl object-cover border border-white/10 transition-all group-hover/nft:border-purple-500'
                           alt={nft.name}
                         />
                         <p className='text-[8px] text-gray-500 mt-2 text-center truncate w-24'>
@@ -540,7 +503,7 @@ if (ipfsHash) {
                       sendOpContext?.forceOpenPanel()
                       screenManager?.navigateTo(screens.NFT)
                     }}
-                    className='w-fit mt-8 px-8 py-3 bg-white text-black rounded-full text-xs font-bold transition-all z-10'
+                    className='w-fit mt-8 px-8 py-3 bg-white text-black rounded-full text-xs font-bold transition-all z-10 hover:bg-gray-200'
                   >
                     Kelola NFT Saya →
                   </button>
@@ -582,30 +545,57 @@ if (ipfsHash) {
   )
 }
 
-const SocialCard = ({ icon: Icon, label, value, type, isEditing, profile, setProfile }: any) => (
-  <motion.div
-    whileHover={{ scale: 1.02, y: -5 }}
-    className='p-8 rounded-[2.5rem] bg-neutral-900/40 border border-white/10 flex flex-col items-center justify-center gap-4 text-center min-h-[180px] backdrop-blur-sm relative'
-  >
-    <div className='p-3 bg-white/5 rounded-2xl group-hover:bg-purple-500/20 transition-all'>
-      <Icon size={32} className='text-white' />
-    </div>
-    {isEditing ? (
-      <input
-        placeholder={`URL ${label}`}
-        value={value}
-        onChange={(e) => setProfile({ ...profile, [type]: e.target.value })}
-        className='w-full bg-white/5 rounded-xl px-3 py-2 text-[10px] border border-white/10 outline-none text-center text-white focus:border-purple-500'
-      />
-    ) : (
-      <a
-        href={value && value.startsWith('http') ? value : `https://${value}`}
+// KOMPONEN SOCIAL CARD YANG BISA DIKLIK KESELURUHAN KOTAKNYA
+const SocialCard = ({ icon: Icon, label, value, type, isEditing, profile, setProfile }: any) => {
+  const hasValue = value && value.trim() !== ''
+  const href = hasValue ? (value.startsWith('http') ? value : `https://${value}`) : undefined
+
+  // Isi dari dalam kotak card
+  const CardContent = (
+    <>
+      <div className='p-3 bg-white/5 rounded-2xl group-hover:bg-purple-500/20 transition-all'>
+        <Icon size={32} className={`text-white transition-colors ${!isEditing && hasValue ? 'group-hover:text-purple-400' : ''}`} />
+      </div>
+      {isEditing ? (
+        <input
+          placeholder={`URL ${label}`}
+          value={value}
+          onChange={(e) => setProfile({ ...profile, [type]: e.target.value })}
+          className='w-full bg-white/5 rounded-xl px-3 py-2 text-[10px] border border-white/10 outline-none text-center text-white focus:border-purple-500 relative z-10'
+          onClick={(e) => e.stopPropagation()} // Cegah input memicu klik parent
+        />
+      ) : (
+        <span className={`text-[10px] font-black tracking-[0.3em] uppercase transition-all ${hasValue ? 'text-gray-400 group-hover:text-purple-400' : 'text-gray-700'}`}>
+          {hasValue ? label : `No ${label}`}
+        </span>
+      )}
+    </>
+  )
+
+  // Styling utama untuk kotak
+  const cardStyles = `p-8 rounded-[2.5rem] bg-neutral-900/40 border border-white/10 flex flex-col items-center justify-center gap-4 text-center min-h-[180px] backdrop-blur-sm relative group transition-all ${
+    !isEditing && hasValue ? 'cursor-pointer hover:border-purple-500/50 hover:bg-neutral-800/60 shadow-lg hover:shadow-purple-500/10' : ''
+  }`
+
+  // Render sebagai tag <a> (Link) jika BUKAN mode edit DAN ada isinya
+  if (!isEditing && hasValue) {
+    return (
+      <motion.a
+        href={href}
         target='_blank'
         rel='noopener noreferrer'
-        className='text-[10px] font-black text-gray-500 tracking-[0.3em] uppercase hover:text-purple-400 transition-all'
+        whileHover={{ scale: 1.02, y: -5 }}
+        className={cardStyles}
       >
-        {label}
-      </a>
-    )}
-  </motion.div>
-)
+        {CardContent}
+      </motion.a>
+    )
+  }
+
+  // Render sebagai tag <div> biasa jika mode edit atau kosong
+  return (
+    <motion.div whileHover={{ scale: 1.02, y: -5 }} className={cardStyles}>
+      {CardContent}
+    </motion.div>
+  )
+}
