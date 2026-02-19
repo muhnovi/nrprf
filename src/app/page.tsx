@@ -25,8 +25,8 @@ import { screens } from '@/types'
 
 // Komponen SVG Kustom untuk Logo X (Twitter Baru)
 const XLogo = ({ size = 32, className = '' }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.008 5.976H5.039z" />
+  <svg width={size} height={size} viewBox='0 0 24 24' fill='currentColor' className={className}>
+    <path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.008 5.976H5.039z' />
   </svg>
 )
 
@@ -44,14 +44,14 @@ export default function App() {
 
   const sendOpContext = useContext(SendUserOpContext)
   const screenManager = useContext(ScreenManagerContext)
-  
+
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
   const [nfts, setNfts] = useState<any[]>([])
   const [loadingNfts, setLoadingNfts] = useState(false)
-
+  const [onChainUsername, setOnChainUsername] = useState('')
   const [profile, setProfile] = useState({
     username: '',
     bio: 'NeroChain Explorer',
@@ -66,22 +66,22 @@ export default function App() {
   // FUNGSI TARIK NFT REAL-TIME VIA RPC
   const fetchNftsFromChain = useCallback(async (ownerAddress: string) => {
     if (!ownerAddress || ownerAddress === ethers.constants.AddressZero) return
-    
+
     setLoadingNfts(true)
     try {
       const rpcProvider = new ethers.providers.JsonRpcProvider('https://rpc-testnet.nerochain.io')
-      const NFT_CONTRACT_ADDRESS = "0xf425742f182899de2f1efa0b02901d6c47c7ccc6" 
-      
+      const NFT_CONTRACT_ADDRESS = '0xf425742f182899de2f1efa0b02901d6c47c7ccc6'
+
       const NFT_ABI = [
-        "function balanceOf(address owner) view returns (uint256)",
-        "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-        "function tokenURI(uint256 tokenId) view returns (string)",
-        "function name() view returns (string)",
-        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+        'function balanceOf(address owner) view returns (uint256)',
+        'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+        'function tokenURI(uint256 tokenId) view returns (string)',
+        'function name() view returns (string)',
+        'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
       ]
-      
+
       const contract = new ethers.Contract(NFT_CONTRACT_ADDRESS, NFT_ABI, rpcProvider)
-      
+
       const balance = await contract.balanceOf(ownerAddress)
       if (balance.toNumber() === 0) {
         setNfts([])
@@ -89,20 +89,20 @@ export default function App() {
         return
       }
 
-      const collectionName = await contract.name().catch(() => "Nero NFT")
+      const collectionName = await contract.name().catch(() => 'Nero NFT')
       let tokenIds: string[] = []
 
       try {
-        for(let i = 0; i < balance.toNumber(); i++) {
+        for (let i = 0; i < balance.toNumber(); i++) {
           const tid = await contract.tokenOfOwnerByIndex(ownerAddress, i)
           tokenIds.push(tid.toString())
         }
       } catch (e) {
-        console.log("Mencari via log transfer karena kontrak tidak support Enumerable...")
+        console.log('Mencari via log transfer karena kontrak tidak support Enumerable...')
         const filter = contract.filters.Transfer(null, ownerAddress)
-        const logs = await contract.queryFilter(filter, 0, "latest")
+        const logs = await contract.queryFilter(filter, 0, 'latest')
         const uniqueTokens = new Set<string>()
-        logs.forEach(log => {
+        logs.forEach((log) => {
           if (log.args && log.args.tokenId) uniqueTokens.add(log.args.tokenId.toString())
         })
         tokenIds = Array.from(uniqueTokens)
@@ -115,8 +115,8 @@ export default function App() {
           let uri = await contract.tokenURI(tokenId)
           if (!uri) continue
 
-          let httpUrl = uri.startsWith('ipfs://') 
-            ? uri.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/') 
+          let httpUrl = uri.startsWith('ipfs://')
+            ? uri.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/')
             : uri
 
           let finalImageUrl = httpUrl
@@ -128,12 +128,15 @@ export default function App() {
               if (metaRes.data.name) finalName = metaRes.data.name
               if (metaRes.data.image) {
                 finalImageUrl = metaRes.data.image.startsWith('ipfs://')
-                  ? metaRes.data.image.replace('ipfs://', import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/')
+                  ? metaRes.data.image.replace(
+                      'ipfs://',
+                      import.meta.env.VITE_GATEWAY_URL || 'https://ipfs.io/ipfs/',
+                    )
                   : metaRes.data.image
               }
             }
           } catch (jsonErr) {
-            console.log("Menggunakan URL metadata secara langsung.")
+            console.log('Menggunakan URL metadata secara langsung.')
           }
 
           fetchedNfts.push({ name: finalName, image_url: finalImageUrl })
@@ -141,18 +144,23 @@ export default function App() {
           console.error(`Gagal memuat token ${tokenId}:`, err)
         }
       }
-      
+
       setNfts(fetchedNfts)
     } catch (e) {
-      console.error("Gagal total menarik dari Smart Contract:", e)
+      console.error('Gagal total menarik dari Smart Contract:', e)
       setNfts([])
     }
     setLoadingNfts(false)
   }, [])
 
-  // FUNGSI TARIK DATA PROFIL
+// FUNGSI TARIK DATA PROFIL (VERSI ANTI-HANG / BULLETPROOF)
   const fetchProfileData = useCallback(
     async (identifier: string, isAddress: boolean) => {
+      if (!identifier) {
+        setLoading(false)
+        return
+      }
+      
       setLoading(true)
       try {
         const rpcProvider = new ethers.providers.JsonRpcProvider('https://rpc-testnet.nerochain.io')
@@ -160,63 +168,122 @@ export default function App() {
 
         let ipfsHash = ''
         let ownerAddr = ''
+        let fetchedUsername = ''
 
         if (isAddress) {
-          const data = await contract.profiles(identifier)
-          ipfsHash = data.ipfsHash
-          ownerAddr = identifier
+          // Gunakan try-catch per baris agar kalau gagal 1, tidak merusak semuanya
+          try {
+            const data = await contract.profiles(identifier)
+            ipfsHash = data.ipfsHash
+            ownerAddr = identifier
+            fetchedUsername = data.username
+          } catch (err) {
+            console.log('Alamat web belum terdaftar di blockchain.')
+          }
+
+          // Cek Jembatan Local Storage
+          if (!fetchedUsername && account) {
+            const savedUsername = localStorage.getItem(`nero_username_${account.toLowerCase()}`)
+            if (savedUsername) {
+              try {
+                const dataByUsername = await contract.getProfileByUsername(savedUsername)
+                ipfsHash = dataByUsername.ipfsHash
+                ownerAddr = dataByUsername.user
+                fetchedUsername = savedUsername
+              } catch (err) {
+                // Hapus memori jika ternyata salah/kosong
+                localStorage.removeItem(`nero_username_${account.toLowerCase()}`)
+              }
+            }
+          }
         } else {
-          const data = await contract.getProfileByUsername(identifier)
-          ipfsHash = data.ipfsHash
-          ownerAddr = data.user
-          
-          if (ownerAddr && ownerAddr !== ethers.constants.AddressZero) {
-            fetchNftsFromChain(ownerAddr)
+          try {
+            const data = await contract.getProfileByUsername(identifier)
+            ipfsHash = data.ipfsHash
+            ownerAddr = data.user
+            fetchedUsername = identifier
+          } catch (err) {
+            console.log('Username tidak ditemukan di blockchain.')
           }
         }
 
+        if (ownerAddr && ownerAddr !== ethers.constants.AddressZero) {
+          fetchNftsFromChain(ownerAddr)
+        }
+
+        if (fetchedUsername) {
+          setOnChainUsername(fetchedUsername)
+          setProfile((prev) => ({ ...prev, username: fetchedUsername }))
+          document.title = `${fetchedUsername} | Nero Profile`
+        }
+
+        // Jalankan IPFS di latar belakang tanpa await yang memblokir proses
         if (ipfsHash) {
-          const res = await axios.get(`${import.meta.env.VITE_GATEWAY_URL}${ipfsHash}`)
-          setProfile(res.data)
+          axios.get(`${import.meta.env.VITE_GATEWAY_URL}${ipfsHash}`, { timeout: 5000 })
+            .then((res) => {
+              if (res.data) {
+                setProfile((prev) => ({
+                  ...prev,
+                  ...res.data,
+                  username: fetchedUsername || res.data.username,
+                }))
+              }
+            })
+            .catch(() => console.log('IPFS gagal/lambat, menggunakan data fallback.'))
         }
-        
-        if (account && ownerAddr.toLowerCase() === account.toLowerCase()) {
-          setIsOwner(true)
-        } else {
-          setIsOwner(false)
+
+        // Tentukan status pemilik
+        let isTrueOwner = false
+        if (account && ownerAddr && ownerAddr.toLowerCase() === account.toLowerCase()) {
+          isTrueOwner = true
+        } else if (account && fetchedUsername) {
+          const saved = localStorage.getItem(`nero_username_${account.toLowerCase()}`)
+          if (saved === fetchedUsername) {
+            isTrueOwner = true
+          }
         }
+        setIsOwner(isTrueOwner)
+
       } catch (e) {
-        console.log('Profil tidak ditemukan')
+        console.error('Error fatal saat menarik data:', e)
+      } finally {
+        // KUNCI UTAMA: Blok 'finally' akan SELALU dijalankan bagaimanapun kondisinya
+        // Memastikan layar loading ungu PASTI hilang
+        setLoading(false)
       }
-      setLoading(false)
     },
-    [account, fetchNftsFromChain]
+    [account, fetchNftsFromChain],
   )
 
-  // USE EFFECT PERTAMA DIMUAT
+  // USE EFFECT PERTAMA DIMUAT (Lebih Aman)
   useEffect(() => {
     const path = window.location.pathname.replace('/', '')
 
     if (path && path !== 'index.html' && path !== '') {
       fetchProfileData(path, false)
-    } else if (account) {
+    } else if (isConnected && account) { 
+      // Pastikan wagmi benar-benar sudah mendapatkan 'account' sebelum memanggil API
       fetchProfileData(account, true)
-      fetchNftsFromChain(account)
-    } else {
+    } else if (!isConnected) {
       setLoading(false)
     }
-  }, [account, fetchProfileData, fetchNftsFromChain])
+  }, [isConnected, account, fetchProfileData])
 
-  // PANTAU HASIL TRANSAKSI
+// PANTAU HASIL TRANSAKSI
   useEffect(() => {
     if (sendOpContext?.latestUserOpResult) {
       console.log('Transaksi sukses dari Sidebar!', sendOpContext.latestUserOpResult)
-      alert('Sukses! Profil berhasil disimpan via Nero Wallet.')
+      
+      // JEMBATAN AA: Simpan username ke memori browser untuk dompet Wagmi ini
+      if (account && profile.username) {
+        localStorage.setItem(`nero_username_${account.toLowerCase()}`, profile.username)
+      }
+
       setIsEditing(false)
       fetchProfileData(profile.username, false)
       sendOpContext.setLatestUserOpResult(null)
     }
-  }, [sendOpContext?.latestUserOpResult, fetchProfileData, profile.username, sendOpContext])
+  }, [sendOpContext?.latestUserOpResult, fetchProfileData, profile.username, sendOpContext, account])
 
   const saveProfile = async () => {
     if (!account) return alert('Koneksikan dompet!')
@@ -268,43 +335,48 @@ export default function App() {
   }
 
   return (
-    <main className='min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-purple-500'>
+    <main className='min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-purple-500 overflow-x-hidden'>
       <div className='fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(17,24,39,1)_0%,_rgba(0,0,0,1)_100%)] -z-10' />
 
       <div className='max-w-5xl mx-auto'>
-        <nav className='flex justify-between items-center mb-8 p-4 bg-white/5 backdrop-blur-xl rounded-full border border-white/10'>
+        <nav className='flex justify-between items-center mb-6 md:mb-8 p-3 md:p-4 bg-white/5 backdrop-blur-xl rounded-full border border-white/10'>
           <div className='flex items-center gap-2'>
-            <img src='/nero-logo-2.png' className='h-8' alt='Nero Logo' />
-            <span className='font-bold tracking-tighter text-xl uppercase'>Nero Profile</span>
+            <img src='/nero-logo-2.png' className='h-6 md:h-8' alt='Nero Logo' />
+            <span className='font-bold tracking-tighter text-lg md:text-xl uppercase hidden sm:block'>Nero Profile</span>
           </div>
 
-          <div className='flex gap-3'>
+          <div className='flex gap-2 md:gap-3'>
             {profile.username && (
               <button
                 onClick={handleShare}
                 className='p-2 bg-white/5 rounded-full hover:bg-white/10 border border-white/5'
               >
-                {copied ? <Check size={20} className='text-green-400' /> : <Share2 size={20} />}
+                {copied ? <Check size={18} className='text-green-400' /> : <Share2 size={18} />}
               </button>
             )}
 
             {isConnected && (
               <button
                 onClick={() => (isEditing ? saveProfile() : setIsEditing(true))}
-                className='px-6 py-2 bg-white text-black rounded-full font-bold hover:scale-105 transition-all flex items-center gap-2 text-sm shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                className='px-4 md:px-6 py-2 bg-white text-black rounded-full font-bold hover:scale-105 transition-all flex items-center gap-2 text-xs md:text-sm shadow-[0_0_20px_rgba(255,255,255,0.2)]'
               >
                 {loading ? (
-                  <Loader2 className='animate-spin' size={18} />
+                  <Loader2 className='animate-spin' size={16} />
                 ) : isEditing ? (
-                  <Save size={18} />
+                  <Save size={16} />
                 ) : (
-                  <Edit3 size={18} />
+                  <Edit3 size={16} />
                 )}
-                {isEditing
-                  ? 'Simpan Gasless (AA)'
-                  : profile.username
-                    ? 'Edit Profil'
-                    : 'Klaim Username'}
+                <span className='hidden sm:inline'>
+                  {isEditing
+                    ? 'Simpan Gasless (AA)'
+                    : profile.username
+                      ? 'Edit Profil'
+                      : 'Klaim Username'}
+                </span>
+                <span className='sm:hidden'>
+                  {isEditing ? 'Simpan' : profile.username ? 'Edit' : 'Klaim'}
+                </span>
               </button>
             )}
           </div>
@@ -314,22 +386,19 @@ export default function App() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className='mb-6 p-4 rounded-2xl border bg-purple-500/10 border-purple-500/30 flex items-center justify-between'
+            className='mb-6 p-4 rounded-2xl border bg-purple-500/10 border-purple-500/30 flex items-center justify-start gap-3'
           >
-            <div className='flex items-center gap-3'>
-              <div className='p-2 rounded-full bg-purple-500'>
-                <Wallet size={16} className='text-black' />
-              </div>
-              <div>
-                <p className='text-[10px] font-bold uppercase tracking-widest opacity-60'>
-                  Connected Address
-                </p>
-                <p className='text-sm font-bold text-purple-400 font-mono'>{account}</p>
-              </div>
+            <div className='p-2 rounded-full bg-purple-500 shrink-0'>
+              <Wallet size={16} className='text-black' />
             </div>
-            <span className='text-[10px] text-purple-300/70 italic text-right max-w-[200px]'>
-              Pastikan Anda login via Twitter/Google di Sidebar agar transaksi masuk ke Dashboard AA.
-            </span>
+            <div className='overflow-hidden'>
+              <p className='text-[10px] font-bold uppercase tracking-widest opacity-60'>
+                Connected Address
+              </p>
+              <p className='text-xs md:text-sm font-bold text-purple-400 font-mono truncate'>
+                {account}
+              </p>
+            </div>
           </motion.div>
         )}
 
@@ -344,28 +413,28 @@ export default function App() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className='flex flex-col items-center justify-center py-24 text-center'
+            className='flex flex-col items-center justify-center py-16 md:py-24 text-center px-4'
           >
             <div className='mb-6 p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20 w-fit'>
               <Rocket className='text-purple-500' size={32} />
             </div>
-            <h1 className='text-6xl md:text-8xl font-bold tracking-tighter mb-6 bg-gradient-to-b from-white to-neutral-600 bg-clip-text text-transparent'>
+            <h1 className='text-5xl md:text-8xl font-bold tracking-tighter mb-6 bg-gradient-to-b from-white to-neutral-600 bg-clip-text text-transparent'>
               On-Chain Identity.
             </h1>
-            <p className='text-gray-400 max-w-lg mb-12 text-lg leading-relaxed'>
+            <p className='text-gray-400 max-w-lg mb-10 md:mb-12 text-base md:text-lg leading-relaxed'>
               Klaim username unik Anda di NeroChain. Profil ini sepenuhnya terdesentralisasi
               menggunakan Account Abstraction & IPFS.
             </p>
             {!isConnected ? (
               <div className='p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm'>
-                <p className='text-sm text-purple-400 font-mono animate-pulse'>
+                <p className='text-xs md:text-sm text-purple-400 font-mono animate-pulse'>
                   Buka Sidebar Nero di kanan untuk masuk →
                 </p>
               </div>
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className='px-10 py-5 bg-purple-600 text-white rounded-full font-bold text-xl hover:bg-purple-500 transition-all shadow-[0_0_40px_rgba(168,85,247,0.3)]'
+                className='px-8 py-4 md:px-10 md:py-5 bg-purple-600 text-white rounded-full font-bold text-lg md:text-xl hover:bg-purple-500 transition-all shadow-[0_0_40px_rgba(168,85,247,0.3)]'
               >
                 Klaim Username Anda
               </button>
@@ -379,13 +448,13 @@ export default function App() {
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className='bg-neutral-900/60 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-md mb-4'
+                  className='bg-neutral-900/60 border border-white/10 p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] backdrop-blur-md mb-4'
                 >
                   <label className='text-[10px] text-gray-500 uppercase font-bold tracking-[0.2em] mb-3 block px-1'>
                     Pilih Username Anda
                   </label>
-                  <div className='flex items-center bg-black/40 rounded-2xl px-4 border border-white/5 focus-within:border-purple-500/50 transition-all'>
-                    <span className='text-gray-600 text-sm font-mono'>neroprofile.xyz/</span>
+                  <div className='flex items-center bg-black/40 rounded-2xl px-3 md:px-4 border border-white/5 focus-within:border-purple-500/50 transition-all'>
+                    <span className='text-gray-600 text-xs md:text-sm font-mono shrink-0 hidden sm:inline'>neroprofile.xyz/</span>
                     <input
                       type='text'
                       value={profile.username}
@@ -395,9 +464,17 @@ export default function App() {
                           username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''),
                         })
                       }
+                      disabled={!!onChainUsername}
                       placeholder='username'
-                      className='bg-transparent border-none focus:ring-0 text-white w-full py-4 pl-1 font-mono text-lg outline-none'
+                      className={`bg-transparent border-none focus:ring-0 text-white w-full py-3 md:py-4 pl-1 font-mono text-base md:text-lg outline-none ${
+                        !!onChainUsername ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     />
+                    {!!onChainUsername && (
+                      <span className='text-[8px] text-green-500 font-bold uppercase tracking-widest border border-green-500/30 bg-green-500/10 px-2 py-1 rounded-full shrink-0'>
+                        On-Chain
+                      </span>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -406,7 +483,7 @@ export default function App() {
             <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
               <motion.div
                 layout
-                className='md:col-span-3 p-10 rounded-[3rem] bg-neutral-900/40 border border-white/10 backdrop-blur-md min-h-[300px] flex flex-col justify-between'
+                className='md:col-span-3 p-6 md:p-10 rounded-3xl md:rounded-[3rem] bg-neutral-900/40 border border-white/10 backdrop-blur-md min-h-[250px] md:min-h-[300px] flex flex-col justify-between'
               >
                 <div>
                   <span className='text-purple-400 font-mono text-xs tracking-widest uppercase'>
@@ -416,20 +493,20 @@ export default function App() {
                     <textarea
                       value={profile.bio}
                       onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                      className='w-full bg-transparent text-4xl font-bold mt-6 outline-none border-b border-white/5 py-2 h-40 resize-none'
+                      className='w-full bg-transparent text-3xl md:text-4xl font-bold mt-4 md:mt-6 outline-none border-b border-white/5 py-2 h-32 md:h-40 resize-none'
                       placeholder='Ceritakan tentang diri Anda...'
                     />
                   ) : (
-                    <h1 className='text-4xl md:text-6xl font-bold mt-6 leading-tight tracking-tighter'>
+                    <h1 className='text-3xl md:text-4xl lg:text-6xl font-bold mt-4 md:mt-6 leading-tight tracking-tighter'>
                       {profile.bio}
                     </h1>
                   )}
                 </div>
-                <div className='mt-8 flex items-center gap-4'>
-                  <div className='px-5 py-2 bg-white/5 rounded-full text-xs font-mono border border-white/5 text-gray-400'>
+                <div className='mt-8 flex flex-col md:flex-row md:items-center gap-3 md:gap-4'>
+                  <div className='px-4 md:px-5 py-2 bg-white/5 rounded-full text-[10px] md:text-xs font-mono border border-white/5 text-gray-400 w-fit truncate'>
                     {`neroprofile.xyz/${profile.username || 'unknown'}`}
                   </div>
-                  <div className='text-[10px] text-gray-700 font-mono truncate max-w-[150px]'>
+                  <div className='text-[10px] text-gray-700 font-mono truncate max-w-[200px]'>
                     {account}
                   </div>
                 </div>
@@ -456,20 +533,20 @@ export default function App() {
 
               <motion.div
                 whileHover={{ y: -5 }}
-                className='md:col-span-2 p-10 rounded-[3rem] bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col justify-between group overflow-hidden relative min-h-[220px]'
+                className='md:col-span-2 p-6 md:p-10 rounded-3xl md:rounded-[3rem] bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col justify-between group overflow-hidden relative min-h-[200px] md:min-h-[220px]'
               >
                 <div className='absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-30 transition-all rotate-12'>
                   <Box size={100} className='text-white' />
                 </div>
 
                 <div>
-                  <h3 className='text-3xl font-bold mb-3'>NFT Assets</h3>
-                  <p className='text-gray-500 text-sm'>
+                  <h3 className='text-2xl md:text-3xl font-bold mb-2 md:mb-3'>NFT Assets</h3>
+                  <p className='text-gray-500 text-xs md:text-sm'>
                     Koleksi aset digital milik @{profile.username || 'user'}
                   </p>
                 </div>
 
-                <div className='flex gap-4 mt-6 overflow-x-auto pb-4 scrollbar-hide'>
+                <div className='flex gap-3 md:gap-4 mt-4 md:mt-6 overflow-x-auto pb-4 scrollbar-hide'>
                   {loadingNfts ? (
                     <div className='flex items-center gap-2 text-gray-500 text-xs'>
                       <Loader2 className='animate-spin' size={14} /> Membaca Kontrak...
@@ -484,10 +561,10 @@ export default function App() {
                       >
                         <img
                           src={nft.image_url || 'https://placehold.co/200x200?text=NFT'}
-                          className='h-24 w-24 rounded-2xl object-cover border border-white/10 transition-all group-hover/nft:border-purple-500'
+                          className='h-20 w-20 md:h-24 md:w-24 rounded-2xl object-cover border border-white/10 transition-all group-hover/nft:border-purple-500'
                           alt={nft.name}
                         />
-                        <p className='text-[8px] text-gray-500 mt-2 text-center truncate w-24'>
+                        <p className='text-[8px] text-gray-500 mt-2 text-center truncate w-20 md:w-24'>
                           {nft.name || 'Unnamed NFT'}
                         </p>
                       </motion.div>
@@ -503,7 +580,7 @@ export default function App() {
                       sendOpContext?.forceOpenPanel()
                       screenManager?.navigateTo(screens.NFT)
                     }}
-                    className='w-fit mt-8 px-8 py-3 bg-white text-black rounded-full text-xs font-bold transition-all z-10 hover:bg-gray-200'
+                    className='w-fit mt-4 md:mt-8 px-6 md:px-8 py-2 md:py-3 bg-white text-black rounded-full text-xs font-bold transition-all z-10 hover:bg-gray-200'
                   >
                     Kelola NFT Saya →
                   </button>
@@ -554,7 +631,10 @@ const SocialCard = ({ icon: Icon, label, value, type, isEditing, profile, setPro
   const CardContent = (
     <>
       <div className='p-3 bg-white/5 rounded-2xl group-hover:bg-purple-500/20 transition-all'>
-        <Icon size={32} className={`text-white transition-colors ${!isEditing && hasValue ? 'group-hover:text-purple-400' : ''}`} />
+        <Icon
+          size={28}
+          className={`text-white transition-colors md:w-8 md:h-8 ${!isEditing && hasValue ? 'group-hover:text-purple-400' : ''}`}
+        />
       </div>
       {isEditing ? (
         <input
@@ -565,16 +645,20 @@ const SocialCard = ({ icon: Icon, label, value, type, isEditing, profile, setPro
           onClick={(e) => e.stopPropagation()} // Cegah input memicu klik parent
         />
       ) : (
-        <span className={`text-[10px] font-black tracking-[0.3em] uppercase transition-all ${hasValue ? 'text-gray-400 group-hover:text-purple-400' : 'text-gray-700'}`}>
+        <span
+          className={`text-[10px] font-black tracking-[0.3em] uppercase transition-all ${hasValue ? 'text-gray-400 group-hover:text-purple-400' : 'text-gray-700'}`}
+        >
           {hasValue ? label : `No ${label}`}
         </span>
       )}
     </>
   )
 
-  // Styling utama untuk kotak
-  const cardStyles = `p-8 rounded-[2.5rem] bg-neutral-900/40 border border-white/10 flex flex-col items-center justify-center gap-4 text-center min-h-[180px] backdrop-blur-sm relative group transition-all ${
-    !isEditing && hasValue ? 'cursor-pointer hover:border-purple-500/50 hover:bg-neutral-800/60 shadow-lg hover:shadow-purple-500/10' : ''
+  // Styling utama untuk kotak (Responsif)
+  const cardStyles = `p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] bg-neutral-900/40 border border-white/10 flex flex-col items-center justify-center gap-3 md:gap-4 text-center min-h-[140px] md:min-h-[180px] backdrop-blur-sm relative group transition-all ${
+    !isEditing && hasValue
+      ? 'cursor-pointer hover:border-purple-500/50 hover:bg-neutral-800/60 shadow-lg hover:shadow-purple-500/10'
+      : ''
   }`
 
   // Render sebagai tag <a> (Link) jika BUKAN mode edit DAN ada isinya
